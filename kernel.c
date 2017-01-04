@@ -10416,6 +10416,56 @@ dump_variable_length_record(void)
 }
 
 static void
+show_kernel_taints_v4_10(char *buf, int verbose)
+{
+	int i, bx;
+	char tnt_true, tnt_false;
+	int tnts_len;
+	ulong tnts_addr;
+	ulong tainted_mask, *tainted_mask_ptr;
+	struct syment *sp;
+
+	if (!VALID_STRUCT(taint_flag)) {
+		STRUCT_SIZE_INIT(taint_flag, "taint_flag");
+		MEMBER_OFFSET_INIT(tnt_true, "taint_flag", "true");
+		MEMBER_OFFSET_INIT(tnt_false, "taint_flag", "false");
+	}
+
+	tnts_len = get_array_length("taint_flags", NULL, 0);
+	sp = symbol_search("taint_flags");
+	tnts_addr = sp->value;
+
+	bx = 0;
+	buf[0] = '\0';
+
+	get_symbol_data("tainted_mask", sizeof(ulong), &tainted_mask);
+	tainted_mask_ptr = &tainted_mask;
+
+	for (i = 0; i < tnts_len; i++) {
+		if (NUM_IN_BITMAP(tainted_mask_ptr, i)) {
+			readmem((tnts_addr + i * SIZE(taint_flag)) +
+					OFFSET(tnt_true),
+				KVADDR, &tnt_true, sizeof(char),
+				"tnt true", FAULT_ON_ERROR);
+				buf[bx++] = tnt_true;
+		} else {
+			readmem((tnts_addr + i * SIZE(taint_flag)) +
+					OFFSET(tnt_false),
+				KVADDR, &tnt_false, sizeof(char),
+				"tnt false", FAULT_ON_ERROR);
+			if (tnt_false != ' ' && tnt_false != '-' &&
+			    tnt_false != 'G')
+				buf[bx++] = tnt_false;
+		}
+	}
+
+	buf[bx++] = '\0';
+
+	if (verbose)
+		fprintf(fp, "TAINTED_MASK: %lx  %s\n", tainted_mask, buf);
+}
+
+static void
 show_kernel_taints(char *buf, int verbose)
 {
 	int i, bx;
@@ -10426,6 +10476,12 @@ show_kernel_taints(char *buf, int verbose)
 	ulong tainted_mask, *tainted_mask_ptr;
 	int tainted;
 	struct syment *sp;
+
+	if (kernel_symbol_exists("taint_flags") &&
+			STRUCT_EXISTS("taint_flag")) {
+		show_kernel_taints_v4_10(buf, verbose);
+		return;
+	}
 
 	if (!VALID_STRUCT(tnt)) { 
                 STRUCT_SIZE_INIT(tnt, "tnt");

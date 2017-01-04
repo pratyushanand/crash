@@ -2120,6 +2120,7 @@ struct size_table {         /* stash of commonly-used sizes */
 	long trace_print_flags;
 	long task_struct_flags;
 	long timer_base;
+	long taint_flag;
 };
 
 struct array_table {

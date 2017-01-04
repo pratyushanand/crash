@@ -10348,6 +10348,8 @@ dump_offset_table(char *spec, ulong makestruct)
 		SIZE(timer_base));
 	fprintf(fp, "                           tnt: %ld\n",
 		SIZE(tnt));
+	fprintf(fp, "                           taint_flag: %ld\n",
+		SIZE(taint_flag));
 
         fprintf(fp, "\n                   array_table:\n");
 	/*
