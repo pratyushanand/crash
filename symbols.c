@@ -8897,6 +8897,7 @@ dump_offset_table(char *spec, ulong makestruct)
 	fprintf(fp, "                       tnt_bit: %ld\n", OFFSET(tnt_bit));
 	fprintf(fp, "                      tnt_true: %ld\n", OFFSET(tnt_true));
 	fprintf(fp, "                     tnt_false: %ld\n", OFFSET(tnt_false));
+	fprintf(fp, "                       tnt_mod: %ld\n", OFFSET(tnt_mod));
 
 	fprintf(fp, "                     page_next: %ld\n", OFFSET(page_next));
 	fprintf(fp, "                     page_prev: %ld\n", OFFSET(page_prev));

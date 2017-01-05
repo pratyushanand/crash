@@ -21,6 +21,7 @@
 #include <elf.h>
 #include <libgen.h>
 #include <ctype.h>
+#include <stdbool.h>
 
 static void do_module_cmd(ulong, char *, ulong, char *, char *);
 static void show_module_taint(void);
@@ -3963,6 +3964,99 @@ check_specified_module_tree(char *module, char *gdb_buffer)
 }
 
 static void
+show_module_taint_4_10(void)
+{
+	int i, j, bx;
+	struct load_module *lm;
+	int maxnamelen;
+	int found;
+	char buf1[BUFSIZE];
+	char buf2[BUFSIZE];
+	struct syment *sp;
+	uint *taintsp, taints;
+	bool tnt_mod;
+	char tnt_true;
+	int tnts_len;
+	ulong tnts_addr;
+	char *modbuf;
+
+	if (INVALID_MEMBER(module_taints)) {
+		MEMBER_OFFSET_INIT(module_taints, "module", "taints");
+		STRUCT_SIZE_INIT(taint_flag, "taint_flag");
+		MEMBER_OFFSET_INIT(tnt_true, "taint_flag", "true");
+		MEMBER_OFFSET_INIT(tnt_mod, "taint_flag", "module");
+	}
+
+	modbuf = GETBUF(SIZE(module));
+
+	for (i = found = maxnamelen = 0; i < kt->mods_installed; i++) {
+		lm = &st->load_modules[i];
+
+		readmem(lm->module_struct, KVADDR, modbuf, SIZE(module),
+			"module struct", FAULT_ON_ERROR);
+
+		taints = ULONG(modbuf + OFFSET(module_taints));
+
+		if (taints) {
+			found++;
+			maxnamelen = strlen(lm->mod_name) > maxnamelen ?
+				strlen(lm->mod_name) : maxnamelen;
+		}
+	}
+
+	if (!found) {
+		fprintf(fp, "no tainted modules\n");
+		FREEBUF(modbuf);
+		return;
+	}
+
+	tnts_len = get_array_length("taint_flags", NULL, 0);
+	sp = symbol_search("taint_flags");
+	tnts_addr = sp->value;
+
+	fprintf(fp, "%s  %s\n",
+			mkstring(buf2, maxnamelen, LJUST, "NAME"), "TAINTS");
+
+	for (i = 0; i < st->mods_installed; i++) {
+
+		lm = &st->load_modules[i];
+		bx = 0;
+		buf1[0] = '\0';
+
+		readmem(lm->module_struct, KVADDR, modbuf, SIZE(module),
+				"module struct", FAULT_ON_ERROR);
+
+		taints = ULONG(modbuf + OFFSET(module_taints));
+		if (!taints)
+			continue;
+		taintsp = &taints;
+
+		for (j = 0; j < tnts_len; j++) {
+			readmem((tnts_addr + j * SIZE(taint_flag)) +
+					OFFSET(tnt_mod),
+					KVADDR, &tnt_mod, sizeof(bool),
+					"tnt mod", FAULT_ON_ERROR);
+			if (!tnt_mod)
+				continue;
+			if (NUM_IN_BITMAP(taintsp, j)) {
+				readmem((tnts_addr + j * SIZE(taint_flag)) +
+						OFFSET(tnt_true),
+						KVADDR, &tnt_true, sizeof(char),
+						"tnt true", FAULT_ON_ERROR);
+				buf1[bx++] = tnt_true;
+			}
+		}
+
+		buf1[bx++] = '\0';
+
+		fprintf(fp, "%s  %s\n", mkstring(buf2, maxnamelen,
+					LJUST, lm->mod_name), buf1);
+	}
+
+	FREEBUF(modbuf);
+}
+
+static void
 show_module_taint(void)
 {
 	int i, j, bx;
@@ -3979,6 +4073,12 @@ show_module_taint(void)
 	int tnts_exists, tnts_len;
 	ulong tnts_addr;
 	char *modbuf;
+
+	if (kernel_symbol_exists("taint_flags") &&
+			STRUCT_EXISTS("taint_flag")) {
+		show_module_taint_4_10();
+		return;
+	}
 
 	if (INVALID_MEMBER(module_taints) &&
 	    INVALID_MEMBER(module_license_gplok)) {

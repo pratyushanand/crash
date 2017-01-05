@@ -1977,6 +1977,7 @@ struct offset_table {                    /* stash of commonly-used offsets */
 	long blk_mq_ctx_rq_dispatched;
 	long blk_mq_ctx_rq_completed;
 	long task_struct_stack;
+	long tnt_mod;
 };
 
 struct size_table {         /* stash of commonly-used sizes */
